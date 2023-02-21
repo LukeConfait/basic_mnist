@@ -1,4 +1,5 @@
 import os
+import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -36,7 +37,6 @@ class Linear:
         hidden = x.copy()
 
         x = x.dot(self.weights_2) + self.biases_2
-        x = 1 / (1 + np.exp(-x))
 
         output = self.softmax(x)
         return hidden, output
@@ -83,7 +83,7 @@ class Linear:
     def model_test(self, input):
         """test a single input"""
         result_layer_1 = 1 / (1 + np.exp(-(input.dot(self.weights_1) + self.biases_1)))
-        result_layer_2 = np.exp(result_layer_1.dot(self.weights_2) + self.biases_2)
+        result_layer_2 = result_layer_1.dot(self.weights_2) + self.biases_2
         result_layer_3 = result_layer_2 / result_layer_2.sum()
         return result_layer_3
 
@@ -147,6 +147,9 @@ def plot_confusion_matrix(model, test_data, test_labels):
     # Set up figure and axes
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.matshow(confusion_matrix, cmap=plt.cm.Blues, alpha=0.7)
+    ax.set_xlabel("Actual")
+    ax.xaxis.set_label_position("top")
+    ax.set_ylabel("Predicted")
 
     for i in range(confusion_matrix.shape[0]):
         for j in range(confusion_matrix.shape[1]):
@@ -194,8 +197,8 @@ def main():
     # Hyperparameters
     input_length = 784
     output_length = 10
-    train_rate = 1e-5
-    epochs = 5000
+    train_rate = 1e-4
+    epochs = 500
 
     # Split into the training and test set
     training_data, training_labels, test_data, test_labels = data_split(
@@ -214,12 +217,20 @@ def main():
 
         # Train the model
         path = f"models/epochs={epochs},M={hidden_layer_length}"
-        if os.path.exists(path):
-            model.load(path)
+        retrain = True
+
+        if retrain == False:
+            if os.path.exists(path):
+                model.load(path)
+            else:
+                model.train(epochs, training_data, training_labels, train_rate)
         else:
             model.train(epochs, training_data, training_labels, train_rate)
-            if save_model:
-                model.save(path)
+
+        if save_model:
+            if os.path.exists(path):
+                shutil.rmtree(path)
+            model.save(path)
 
         # k = rand.randint(0, len(test_data))
         # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
@@ -227,12 +238,18 @@ def main():
         # generate confusion matrix for the models predictions of the test set
 
         plot_confusion_matrix(model, test_data, test_labels)
-        path = "../figures"
+        path = "figures"
         try:
             os.mkdir(path)
         except OSError as error:
             pass
-        plt.savefig(f"figures/epochs={epochs},M={hidden_layer_length}.png")
+
+        figure_path = f"figures/epochs={epochs},M={hidden_layer_length}.png"
+
+        if os.path.exists(figure_path):
+            os.remove(figure_path)
+
+        plt.savefig(figure_path)
         # plt.show()
 
         # j = np.random.randint(1, len(test_data))

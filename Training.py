@@ -44,6 +44,9 @@ class Linear:
     def train(self, epochs, train_inputs, train_labels, train_rate):
         """Changes the values of the weights and biases using gradient descent during training"""
         # Derivatives for Weights and biases
+        print(
+            f"Training with hidden layer of length {self.L}, for {epochs} epochs at a train rate of {train_rate} "
+        )
         for i in range(epochs):
             hidden, outputs = self.forward(train_inputs)
 
@@ -93,8 +96,7 @@ class Linear:
         """Cost function for the error of the model"""
         return -(labels * np.log(outputs))
 
-    def save(self):
-        path = f"weights and biases/M={self.L}"
+    def save(self, path):
         try:
             os.mkdir(path)
         except OSError as error:
@@ -179,8 +181,7 @@ def test(test_data, test_labels, model, j):
     fig, ax = plt.subplots()
     plt.imshow(nest_list(test_data[j], 28, 28))
     print(f"test label: {label}, model prediction: {model_prediction}")
-
-    # return ax
+    return ax
 
 
 def main():
@@ -192,10 +193,9 @@ def main():
 
     # Hyperparameters
     input_length = 784
-    hidden_layer_length = 2
     output_length = 10
     train_rate = 1e-5
-    epochs = 10
+    epochs = 5000
 
     # Split into the training and test set
     training_data, training_labels, test_data, test_labels = data_split(
@@ -205,31 +205,39 @@ def main():
     # Initialise the training labels
     training_labels = y2indicator(training_labels)
 
-    # Create the model of one Linear layer mappping input to output
-    model = Linear(hidden_layer_length, input_length, output_length)
+    for hidden_layer_length in range(50, 500, 50):
 
-    train_model = False
-    save_model = True
-    # Train the model
-    if train_model:
-        model.train(epochs, training_data, training_labels, train_rate)
-        if save_model:
-            model.save()
-    else:
-        model.load(f"weights and biases/M={hidden_layer_length}")
+        # Create the model of one Linear layer mappping input to output
+        model = Linear(hidden_layer_length, input_length, output_length)
 
-    # k = rand.randint(0, len(test_data))
-    # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
+        save_model = True
 
-    # generate confusion matrix for the models predictions of the test set
-    plot_confusion_matrix(model, test_data, test_labels)
-    plt.show()
+        # Train the model
+        path = f"models/epochs={epochs},M={hidden_layer_length}"
+        if os.path.exists(path):
+            model.load(path)
+        else:
+            model.train(epochs, training_data, training_labels, train_rate)
+            if save_model:
+                model.save(path)
 
-    # confusion_matrix.savefig("../")
+        # k = rand.randint(0, len(test_data))
+        # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
 
-    j = np.random.randint(1, len(test_data))
-    test(test_data, test_labels, model, j)
-    plt.show()
+        # generate confusion matrix for the models predictions of the test set
+
+        plot_confusion_matrix(model, test_data, test_labels)
+        path = "../figures"
+        try:
+            os.mkdir(path)
+        except OSError as error:
+            pass
+        plt.savefig(f"figures/epochs={epochs},M={hidden_layer_length}.png")
+        # plt.show()
+
+        # j = np.random.randint(1, len(test_data))
+        # test(test_data, test_labels, model, j)
+        # plt.show()
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
 /.vscode
 figures
 models
+__pycache__

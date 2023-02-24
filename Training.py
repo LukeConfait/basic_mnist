@@ -177,6 +177,7 @@ def nest_list(list1, rows, columns):
 
 
 def test(test_data, test_labels, model, j):
+    """Test the model at a single data point"""
 
     model_prediction = np.argmax(model.model_test(test_data[j]))
     label = test_labels[j]
@@ -197,8 +198,9 @@ def main():
     # Hyperparameters
     input_length = 784
     output_length = 10
+    hidden_layer_length = 150
     train_rate = 1e-4
-    epochs = 500
+    epochs = 2000
 
     # Split into the training and test set
     training_data, training_labels, test_data, test_labels = data_split(
@@ -208,53 +210,53 @@ def main():
     # Initialise the training labels
     training_labels = y2indicator(training_labels)
 
-    for hidden_layer_length in range(50, 500, 50):
+    # for hidden_layer_length in range(50, 500, 50):
 
-        # Create the model of one Linear layer mappping input to output
-        model = Linear(hidden_layer_length, input_length, output_length)
+    # Create the model of one Linear layer mappping input to output
+    model = Linear(hidden_layer_length, input_length, output_length)
 
-        save_model = True
+    save_model = True
 
-        # Train the model
-        path = f"models/epochs={epochs},M={hidden_layer_length}"
-        retrain = True
+    # Train the model
+    path = f"models/epochs={epochs},M={hidden_layer_length}"
+    retrain = True
 
-        if retrain == False:
-            if os.path.exists(path):
-                model.load(path)
-            else:
-                model.train(epochs, training_data, training_labels, train_rate)
+    if retrain == False:
+        if os.path.exists(path):
+            model.load(path)
         else:
             model.train(epochs, training_data, training_labels, train_rate)
+    else:
+        model.train(epochs, training_data, training_labels, train_rate)
 
-        if save_model:
-            if os.path.exists(path):
-                shutil.rmtree(path)
-            model.save(path)
+    if save_model:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        model.save(path)
 
-        # k = rand.randint(0, len(test_data))
-        # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
+    # k = rand.randint(0, len(test_data))
+    # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
 
-        # generate confusion matrix for the models predictions of the test set
+    # generate confusion matrix for the models predictions of the test set
 
-        plot_confusion_matrix(model, test_data, test_labels)
-        path = "figures"
-        try:
-            os.mkdir(path)
-        except OSError as error:
-            pass
+    plot_confusion_matrix(model, test_data, test_labels)
+    path = "figures"
+    try:
+        os.mkdir(path)
+    except OSError as error:
+        pass
 
-        figure_path = f"figures/epochs={epochs},M={hidden_layer_length}.png"
+    figure_path = f"figures/epochs={epochs},M={hidden_layer_length}.png"
 
-        if os.path.exists(figure_path):
-            os.remove(figure_path)
+    if os.path.exists(figure_path):
+        os.remove(figure_path)
 
-        plt.savefig(figure_path)
-        # plt.show()
+    plt.savefig(figure_path)
+    # plt.show()
 
-        # j = np.random.randint(1, len(test_data))
-        # test(test_data, test_labels, model, j)
-        # plt.show()
+    # j = np.random.randint(1, len(test_data))
+    # test(test_data, test_labels, model, j)
+    # plt.show()
 
 
 if __name__ == "__main__":

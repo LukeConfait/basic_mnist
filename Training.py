@@ -11,9 +11,9 @@ class Linear:
 
     def __init__(
         self,
-        layer_length,
-        prev_layer_length,
-        next_layer_length,
+        layer_length: int,
+        prev_layer_length: int,
+        next_layer_length: int,
     ):
 
         self.L = layer_length
@@ -28,8 +28,20 @@ class Linear:
 
         self.cost_array = []
 
+    def load_model(self, folder_path: str):
+        """Load in the weights and biases from the saved model"""
+        self.weights_1 = np.loadtxt(f"{folder_path}\w1.csv", delimiter=",")
+        self.biases_1 = np.loadtxt(f"{folder_path}\\b1.csv", delimiter=",")
+        self.weights_2 = np.loadtxt(f"{folder_path}\w2.csv", delimiter=",")
+        self.biases_2 = np.loadtxt(f"{folder_path}\\b2.csv", delimiter=",")
+
+    def import_data(self, training_data, training_labels):
+        """Import the training data as numpy arrays"""
+        self.training_data = training_data
+        self.training_labels = training_labels
+
     def forward(self, inputs):
-        """Moves forward in the calculation returning hidden and output layer values"""
+        """Propogates values through the model returning hidden and output layer values"""
 
         x = inputs.dot(self.weights_1) + self.biases_1
         x = 1 / (1 + np.exp(-x))
@@ -41,12 +53,33 @@ class Linear:
         output = self.softmax(x)
         return hidden, output
 
-    def train(self, epochs, train_inputs, train_labels, train_rate):
+    def get_training_batch(self, batch_size: int, training_data, training_labels):
+        """Get a random training batch based on the batch size"""
+        data_length = batch_size
+        training_data = training_data.tolist()
+        training_labels = training_labels.tolist()
+
+        while len(training_data) > data_length:
+            random = np.random.randint(0, len(training_data))
+            training_data.pop(random)
+            training_labels.pop(random)
+
+        return (
+            np.array(training_data),
+            np.array(training_labels),
+        )
+
+    def train(self, epochs: int, batch_size, train_rate, evaluation_interval: int):
         """Changes the values of the weights and biases using gradient descent during training"""
         # Derivatives for Weights and biases
         print(
             f"Training with hidden layer of length {self.L}, for {epochs} epochs at a train rate of {train_rate} "
         )
+
+        train_inputs, train_labels = self.get_training_batch(
+            batch_size, self.training_data, self.training_labels
+        )
+
         for i in range(epochs):
             hidden, outputs = self.forward(train_inputs)
 
@@ -70,21 +103,15 @@ class Linear:
             self.biases_2 -= train_rate * grad_b2
 
             cost = sum(sum(self.cost(train_labels, outputs)))
-            if i % 100 == 0:
-                print(f"At epoch:{i}, the loss was {cost}")
 
-    def load(self, folder_path: str):
-        """Load in the weights and biases from the saved model"""
-        self.weights_1 = np.loadtxt(f"{folder_path}\w1.csv", delimiter=",")
-        self.biases_1 = np.loadtxt(f"{folder_path}\\b1.csv", delimiter=",")
-        self.weights_2 = np.loadtxt(f"{folder_path}\w2.csv", delimiter=",")
-        self.biases_2 = np.loadtxt(f"{folder_path}\\b2.csv", delimiter=",")
+            if i % evaluation_interval == 0:
+                print(f"At epoch:{i}, the loss was {cost}")
 
     def model_test(self, input):
         """test a single input"""
         result_layer_1 = 1 / (1 + np.exp(-(input.dot(self.weights_1) + self.biases_1)))
         result_layer_2 = result_layer_1.dot(self.weights_2) + self.biases_2
-        result_layer_3 = result_layer_2 / result_layer_2.sum()
+        result_layer_3 = np.exp(result_layer_2) / sum(np.exp(result_layer_2))
         return result_layer_3
 
     def softmax(self, input):
@@ -140,10 +167,14 @@ def data_split(data, labels, split):
 
 
 def plot_confusion_matrix(model, test_data, test_labels):
+    """Returns a matplotlib ax object of the confusion matrix over the data and labels provided"""
+
     confusion_matrix = np.zeros((10, 10))
     for i, data in enumerate(test_data):
+
         result = np.argmax(model.model_test(data))
-        confusion_matrix[int(test_labels[i])][result] += 1
+        confusion_matrix[np.argmax(test_labels[i])][result] += 1
+
     # Set up figure and axes
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     ax.matshow(confusion_matrix, cmap=plt.cm.Blues, alpha=0.7)
@@ -189,56 +220,58 @@ def test(test_data, test_labels, model, j):
 
 
 def main():
-    # Data import
-    mnist = loadmat(r"input\mnist-original.mat")
-    # Convert training data to normalised vector
-    mnist_data = (mnist["data"].T) / 256
-    mnist_label = mnist["label"][0]
 
-    # Hyperparameters
+    # Hyper parameters
     input_length = 784
     output_length = 10
     hidden_layer_length = 150
     train_rate = 1e-4
-    epochs = 2000
+    batch_size = 7000
+    epochs = 1000
+    evaluation_interval = 100
 
-    # Split into the training and test set
-    training_data, training_labels, test_data, test_labels = data_split(
-        mnist_data, mnist_label, 0.7
-    )
+    # Data import
+    mnist = loadmat(r"input\mnist-original.mat")
+    # Convert training data to normalised vector
+    data = (mnist["data"].T) / 256
+    print(f"loaded {len(data)} training samples")
+    labels = y2indicator(mnist["label"][0])
 
-    # Initialise the training labels
-    training_labels = y2indicator(training_labels)
-
-    # for hidden_layer_length in range(50, 500, 50):
-
-    # Create the model of one Linear layer mappping input to output
+    # create a linear model
     model = Linear(hidden_layer_length, input_length, output_length)
 
+    # Should the resulting model weights and biases be saved
     save_model = True
 
     # Train the model
     path = f"models/epochs={epochs},M={hidden_layer_length}"
+
+    # Separate into a training and test set
+
+    training_data, training_labels, test_data, test_labels = data_split(
+        data, labels, 0.9
+    )
+
+    # load the data into the model for training
+    model.import_data(training_data, training_labels)
+
+    # retrain the model if a model exists with the same hyperparameters
     retrain = True
 
     if retrain == False:
         if os.path.exists(path):
-            model.load(path)
+            model.load_model(path)
         else:
-            model.train(epochs, training_data, training_labels, train_rate)
+            model.train(epochs, batch_size, train_rate, evaluation_interval)
     else:
-        model.train(epochs, training_data, training_labels, train_rate)
+        model.train(epochs, batch_size, train_rate, evaluation_interval)
 
     if save_model:
         if os.path.exists(path):
             shutil.rmtree(path)
         model.save(path)
 
-    # k = rand.randint(0, len(test_data))
-    # np.savetxt("weights and biases\example.csv", test_data[k], delimiter=",")
-
     # generate confusion matrix for the models predictions of the test set
-
     plot_confusion_matrix(model, test_data, test_labels)
     path = "figures"
     try:
@@ -252,11 +285,7 @@ def main():
         os.remove(figure_path)
 
     plt.savefig(figure_path)
-    # plt.show()
-
-    # j = np.random.randint(1, len(test_data))
-    # test(test_data, test_labels, model, j)
-    # plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":
